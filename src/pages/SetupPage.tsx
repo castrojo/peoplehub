@@ -1,13 +1,15 @@
 import { useNavigate } from 'react-router-dom'
 import { UsernameInput } from '../components/UsernameInput'
-import { useUsername } from '../hooks/useUsername'
 
-export function SetupPage() {
-  const { setUsername } = useUsername()
+interface SetupPageProps {
+  onSave: (username: string) => void
+}
+
+export function SetupPage({ onSave }: SetupPageProps) {
   const navigate = useNavigate()
 
   const handleSave = (name: string) => {
-    setUsername(name)
+    onSave(name)
     navigate('/')
   }
 

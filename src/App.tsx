@@ -5,7 +5,7 @@ import { FeedPage } from './pages/FeedPage'
 import { SetupPage } from './pages/SetupPage'
 
 function AppRoutes() {
-  const { username, clearUsername } = useUsername()
+  const { username, setUsername, clearUsername } = useUsername()
   // Ensure theme is applied on mount
   useTheme()
 
@@ -19,7 +19,7 @@ function AppRoutes() {
             : <Navigate to="/setup" replace />
         }
       />
-      <Route path="/setup" element={<SetupPage />} />
+      <Route path="/setup" element={<SetupPage onSave={setUsername} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
