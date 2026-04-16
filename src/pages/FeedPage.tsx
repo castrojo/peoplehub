@@ -2,9 +2,11 @@ import { useNavigate } from 'react-router-dom'
 import { useFeed } from '../hooks/useFeed'
 import { useRateLimit } from '../hooks/useRateLimit'
 import { useTheme } from '../hooks/useTheme'
+import { useKeyboardNav } from '../hooks/useKeyboardNav'
 import { FeedList } from '../components/FeedList'
 import { RateLimitBanner } from '../components/RateLimitBanner'
 import { ErrorBoundary } from '../components/ErrorBoundary'
+import { ShortcutsHelp } from '../components/ShortcutsHelp'
 
 interface FeedPageProps {
   username: string
@@ -22,6 +24,17 @@ export function FeedPage({ username, onChangeUsername }: FeedPageProps) {
   const { isRateLimited, retryAfter, setRateLimited, clear: clearRateLimit } = useRateLimit()
   const { theme, cycleTheme } = useTheme()
   const navigate = useNavigate()
+
+  const { selectedIndex, showHelp, setShowHelp } = useKeyboardNav({
+    itemCount: items.length,
+    onOpen: (index) => {
+      const item = items[index]
+      if (item?.repo.htmlUrl.startsWith('https://github.com/')) {
+        window.open(item.repo.htmlUrl, '_blank', 'noopener,noreferrer')
+      }
+    },
+    onRefresh: refresh,
+  })
 
   // Sync rate limit state from feed status
   if (status === 'rate_limited' && !isRateLimited) {
@@ -46,8 +59,16 @@ export function FeedPage({ username, onChangeUsername }: FeedPageProps) {
               onClick={refresh}
               disabled={status === 'loading'}
               className="text-xs text-fg-muted hover:text-fg disabled:opacity-40"
+              title="Refresh (r)"
             >
               ↻
+            </button>
+            <button
+              onClick={() => setShowHelp(true)}
+              className="text-xs text-fg-muted hover:text-fg"
+              title="Keyboard shortcuts (?)"
+            >
+              ?
             </button>
             <button
               onClick={cycleTheme}
@@ -79,10 +100,25 @@ export function FeedPage({ username, onChangeUsername }: FeedPageProps) {
             repoMeta={repoMeta}
             status={status}
             isPartial={isPartial}
+            selectedIndex={selectedIndex}
             onRetry={refresh}
           />
         </ErrorBoundary>
+        {items.length > 0 && (
+          <p className="mt-6 text-center text-xs text-fg-subtle">
+            <kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> navigate
+            {' · '}
+            <kbd className="font-mono">l</kbd> open
+            {' · '}
+            <kbd className="font-mono">r</kbd> refresh
+            {' · '}
+            <button onClick={() => setShowHelp(true)} className="underline hover:text-fg">
+              ?
+            </button>
+          </p>
+        )}
       </main>
+      {showHelp && <ShortcutsHelp onClose={() => setShowHelp(false)} />}
     </div>
   )
 }

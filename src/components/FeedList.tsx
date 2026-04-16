@@ -6,6 +6,7 @@ interface FeedListProps {
   repoMeta: Map<string, RepoMetadata>
   status: 'idle' | 'loading' | 'success' | 'error' | 'rate_limited'
   isPartial: boolean
+  selectedIndex: number | null
   onRetry: () => void
 }
 
@@ -23,7 +24,7 @@ function SkeletonCard() {
   )
 }
 
-export function FeedList({ items, repoMeta, status, isPartial, onRetry }: FeedListProps) {
+export function FeedList({ items, repoMeta, status, isPartial, selectedIndex, onRetry }: FeedListProps) {
   if (status === 'loading') {
     return (
       <div className="space-y-3">
@@ -60,11 +61,13 @@ export function FeedList({ items, repoMeta, status, isPartial, onRetry }: FeedLi
 
   return (
     <div className="space-y-3">
-      {items.map(item => (
+      {items.map((item, i) => (
         <FeedCard
           key={item.id}
           item={item}
           meta={repoMeta.get(item.repo.fullName)}
+          index={i}
+          isSelected={selectedIndex === i}
         />
       ))}
       {isPartial && (

@@ -3,6 +3,8 @@ import type { FeedItem, RepoMetadata } from '../types/github'
 interface FeedCardProps {
   item: FeedItem
   meta: RepoMetadata | undefined
+  isSelected?: boolean
+  index: number
 }
 
 function formatRelativeTime(isoString: string): string {
@@ -64,11 +66,21 @@ function ActorRow({ actors }: { actors: FeedItem['actors'] }) {
   )
 }
 
-export function FeedCard({ item, meta }: FeedCardProps) {
+export function FeedCard({ item, meta, isSelected = false, index }: FeedCardProps) {
   const isSafe = item.repo.htmlUrl.startsWith('https://github.com/')
 
   return (
-    <article className="bg-canvas border border-border rounded-lg p-4 hover:border-border transition-colors">
+    <article
+      data-feed-index={index}
+      tabIndex={-1}
+      className={[
+        'bg-canvas border rounded-lg p-4 transition-colors outline-none',
+        'focus-visible:ring-2 focus-visible:ring-accent-emphasis',
+        isSelected
+          ? 'border-l-4 border-l-accent-emphasis border-border bg-canvas-subtle'
+          : 'border-border hover:border-border',
+      ].join(' ')}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <ActorRow actors={item.actors} />
