@@ -1,33 +1,10 @@
-import { useState, useCallback } from 'react'
-
-const USERNAME_KEY = 'peoplehub:username'
-
+// Backward-compatible shim — username is now always "awesome-cncf" (collective feed).
+// Real config (optional GitHub token) lives in useConfig.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function useUsername() {
-  const [username, setUsernameState] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(USERNAME_KEY)
-    } catch {
-      return null
-    }
-  })
-
-  const setUsername = useCallback((name: string) => {
-    try {
-      localStorage.setItem(USERNAME_KEY, name)
-    } catch {
-      // storage unavailable — still update state
-    }
-    setUsernameState(name)
-  }, [])
-
-  const clearUsername = useCallback(() => {
-    try {
-      localStorage.removeItem(USERNAME_KEY)
-    } catch {
-      // ignore
-    }
-    setUsernameState(null)
-  }, [])
-
-  return { username, setUsername, clearUsername }
+  return {
+    username: 'awesome-cncf' as const,
+    setUsername: (_: string) => {},
+    clearUsername: () => {},
+  }
 }

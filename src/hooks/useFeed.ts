@@ -1,99 +1,96 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getReceivedEvents } from '../lib/github'
-import { filterEvents, deduplicateEvents, aggregateEvents } from '../lib/events'
+import { fetchCollectiveFeed } from '../lib/collectiveFeed'
+import { getCNCFCategory } from '../lib/cncfData'
 import { cacheGet, cacheSet, feedCacheKey } from '../lib/cache'
-import { batchGetOrFetch } from '../lib/repoCache'
-import type { FeedItem, FeedResult, RepoMetadata } from '../types/github'
+import { useConfig } from './useConfig'
+import type { CollectiveFeedState, CategoryFilter, FeedItem } from '../types/github'
 
-const FEED_TTL_MS = 6 * 60 * 60 * 1000   // 6 hours
-const STALE_THRESHOLD_MS = 5 * 60 * 60 * 1000 // background refresh at 5h
+const FEED_TTL_MS = 6 * 60 * 60 * 1000        // 6 hours — max cache age before forced refresh
+const STALE_MS = 60 * 60 * 1000               // 1 hour — trigger background refresh if older
 
-type FeedStatus = 'idle' | 'loading' | 'success' | 'error' | 'rate_limited'
-
-interface UseFeedResult {
-  items: FeedItem[]
-  repoMeta: Map<string, RepoMetadata>
-  status: FeedStatus
-  lastFetchedAt: Date | null
-  isPartial: boolean
-  refresh: () => void
+function getCacheKey(token: string | undefined): string {
+  return feedCacheKey(`collective:${token ? 'auth' : 'anon'}`)
 }
 
-export function useFeed(username: string | null): UseFeedResult {
-  const [items, setItems] = useState<FeedItem[]>([])
-  const [repoMeta, setRepoMeta] = useState<Map<string, RepoMetadata>>(new Map())
-  const [status, setStatus] = useState<FeedStatus>('idle')
-  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null)
-  const [isPartial, setIsPartial] = useState(false)
+const INITIAL_STATE: CollectiveFeedState = {
+  items: [],
+  isLoading: false,
+  isPartial: false,
+  failedUsers: [],
+  fetchedAt: null,
+  error: null,
+}
+
+export function useFeed(): {
+  state: CollectiveFeedState
+  categoryFilter: CategoryFilter
+  setCategoryFilter: (cat: CategoryFilter) => void
+  refresh: () => void
+  filteredItems: FeedItem[]
+} {
+  const { config } = useConfig()
+  const [state, setState] = useState<CollectiveFeedState>(INITIAL_STATE)
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(null)
   const fetchingRef = useRef(false)
 
-  const fetchFeed = useCallback(async (uname: string) => {
+  const fetchFeed = useCallback(async (token: string | undefined, background = false) => {
     if (fetchingRef.current) return
     fetchingRef.current = true
-    setStatus('loading')
 
-    const result = await getReceivedEvents(uname)
-
-    if ('error' in result) {
-      fetchingRef.current = false
-      if (result.error === 'rate_limited') {
-        setStatus('rate_limited')
-      } else {
-        setStatus('error')
-      }
-      return
+    if (!background) {
+      setState(prev => ({ ...prev, isLoading: true, error: null }))
     }
 
-    const filtered = filterEvents(result.data)
-    const deduped = deduplicateEvents(filtered)
-    const feedResult: FeedResult = aggregateEvents(deduped)
+    try {
+      const result = await fetchCollectiveFeed({ token })
 
-    // Batch-fetch repo metadata for all unique repos
-    const repoNames = feedResult.items.map(i => i.repo.fullName)
-    const meta = await batchGetOrFetch(repoNames)
+      const next: CollectiveFeedState = {
+        items: result.items,
+        isLoading: false,
+        isPartial: result.isPartial,
+        failedUsers: result.failedUsers,
+        fetchedAt: result.fetchedAt,
+        error: result.rateLimited ? 'rate_limited' : null,
+      }
 
-    cacheSet(feedCacheKey(uname), feedResult)
-
-    setItems(feedResult.items)
-    setRepoMeta(meta)
-    setIsPartial(feedResult.isPartial)
-    setLastFetchedAt(new Date(feedResult.fetchedAt))
-    setStatus('success')
-    fetchingRef.current = false
+      cacheSet(getCacheKey(token), next)
+      setState(next)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      if (!background) {
+        setState(prev => ({ ...prev, isLoading: false, error: message }))
+      }
+    } finally {
+      fetchingRef.current = false
+    }
   }, [])
 
   const refresh = useCallback(() => {
-    if (username) fetchFeed(username)
-  }, [username, fetchFeed])
+    fetchFeed(config.token)
+  }, [config.token, fetchFeed])
 
   useEffect(() => {
-    if (!username) {
-      setStatus('idle')
-      setItems([])
-      return
-    }
-
-    const cached = cacheGet<FeedResult>(feedCacheKey(username), FEED_TTL_MS)
+    const cacheKey = getCacheKey(config.token)
+    const cached = cacheGet<CollectiveFeedState>(cacheKey, FEED_TTL_MS)
 
     if (cached) {
-      // Serve from cache immediately
-      setItems(cached.data.items)
-      setIsPartial(cached.data.isPartial)
-      setLastFetchedAt(new Date(cached.data.fetchedAt))
-      setStatus('success')
-
-      // Enrich repo metadata from repoCache (may be cached already)
-      const repoNames = cached.data.items.map(i => i.repo.fullName)
-      batchGetOrFetch(repoNames).then(setRepoMeta)
-
-      // Background refresh if getting stale
-      if (cached.ageMs > STALE_THRESHOLD_MS) {
-        fetchFeed(username)
+      setState({ ...cached.data, isLoading: false })
+      // Background stale-while-revalidate: refresh if data is older than STALE_MS
+      const ageMs = cached.ageMs
+      if (ageMs > STALE_MS) {
+        fetchFeed(config.token, /* background */ true)
       }
     } else {
-      fetchFeed(username)
+      fetchFeed(config.token)
     }
-  }, [username, fetchFeed])
+  // Rerun when token changes so cache key and fetch target update accordingly
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.token])
 
-  return { items, repoMeta, status, lastFetchedAt, isPartial, refresh }
+  const filteredItems: FeedItem[] =
+    categoryFilter === null
+      ? state.items
+      : state.items.filter(item => getCNCFCategory(item.repo.fullName) === categoryFilter)
+
+  return { state, categoryFilter, setCategoryFilter, refresh, filteredItems }
 }
