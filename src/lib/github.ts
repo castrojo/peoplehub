@@ -63,6 +63,85 @@ export async function getReceivedEvents(
   return { data: allEvents }
 }
 
+export async function getUserEvents(
+  username: string,
+  maxPages = 3
+): Promise<ApiResult<GitHubEvent[]>> {
+  const allEvents: GitHubEvent[] = []
+
+  for (let page = 1; page <= maxPages; page++) {
+    const url = `${GITHUB_API}/users/${encodeURIComponent(username)}/events/public?per_page=100&page=${page}`
+
+    let response: Response
+    try {
+      response = await fetch(url, {
+        headers: getHeaders(),
+        redirect: 'error',
+      })
+    } catch (err) {
+      return { error: 'network', message: String(err) }
+    }
+
+    if (response.status === 403 || response.status === 429) {
+      return { error: 'rate_limited', retryAfter: parseRetryAfter(response.headers) }
+    }
+    if (response.status === 404) {
+      return { error: 'not_found' }
+    }
+    if (!response.ok) {
+      return { error: 'unknown', message: `HTTP ${response.status}` }
+    }
+
+    let events: GitHubEvent[]
+    try {
+      events = await response.json() as GitHubEvent[]
+    } catch {
+      return { error: 'unknown', message: 'Failed to parse response JSON' }
+    }
+
+    allEvents.push(...events)
+
+    if (events.length < 100) break
+  }
+
+  return { data: allEvents }
+}
+
+export async function getOrgMembers(
+  org: string
+): Promise<ApiResult<string[]>> {
+  const url = `${GITHUB_API}/orgs/${encodeURIComponent(org)}/members?per_page=100`
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      headers: getHeaders(),
+      redirect: 'error',
+    })
+  } catch (err) {
+    return { error: 'network', message: String(err) }
+  }
+
+  if (response.status === 403 || response.status === 429) {
+    return { error: 'rate_limited', retryAfter: parseRetryAfter(response.headers) }
+  }
+  if (response.status === 404) {
+    return { error: 'not_found' }
+  }
+  if (!response.ok) {
+    return { error: 'unknown', message: `HTTP ${response.status}` }
+  }
+
+  let raw: Array<{ login: string }>
+  try {
+    raw = await response.json() as Array<{ login: string }>
+  } catch {
+    return { error: 'unknown', message: 'Failed to parse org members JSON' }
+  }
+
+  return { data: raw.map(m => m.login) }
+}
+
 export async function getRepoMetadata(
   fullName: string
 ): Promise<ApiResult<RepoMetadata>> {
