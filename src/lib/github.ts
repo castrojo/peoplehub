@@ -123,11 +123,11 @@ export async function getUserEvents(
 
 export async function getOrgMembers(
   org: string,
+  maxPages = 10,
 ): Promise<ApiResult<string[]>> {
   const allMembers: string[] = []
-  let page = 1
 
-  while (true) {
+  for (let page = 1; page <= maxPages; page++) {
     const url = `${GITHUB_API}/orgs/${encodeURIComponent(org)}/members?per_page=100&page=${page}`
 
     let response: Response
@@ -160,7 +160,6 @@ export async function getOrgMembers(
     allMembers.push(...members.map(m => m.login))
 
     if (members.length < 100) break
-    page++
   }
 
   return { data: allMembers }
