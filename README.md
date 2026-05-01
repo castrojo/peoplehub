@@ -1,5 +1,7 @@
 # peoplehub
 
+## CNCF, AAIF, and other Linux Foundation employee's star feeds.
+
 A minimal GitHub discovery feed. Shows only ⭐ Stars and 🍴 Forks from people you follow — no releases, no pushes, no noise.
 
 **Live:** https://castrojo.github.io/peoplehub
