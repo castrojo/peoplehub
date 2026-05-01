@@ -74,14 +74,15 @@ export function useAutoRefresh({ onRefresh }: UseAutoRefreshOptions): UseAutoRef
       return
     }
 
-    const startedAt = Date.now()
-    const deadline = startedAt + intervalMs
+    // Use `let` so it can be reassigned inside the tick to reset after each refresh
+    let deadline = Date.now() + intervalMs
 
     const tick = setInterval(() => {
       const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
       setNextRefreshIn(remaining)
       if (remaining === 0) {
         onRefreshRef.current()
+        deadline = Date.now() + intervalMs  // reset for next cycle
       }
     }, 1000)
 

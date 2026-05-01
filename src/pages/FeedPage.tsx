@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useFeed } from '../hooks/useFeed'
 import { useTeamFeed } from '../hooks/useTeamFeed'
@@ -6,6 +7,7 @@ import { useTheme } from '../hooks/useTheme'
 import { useKeyboardNav } from '../hooks/useKeyboardNav'
 import { useAutoRefresh, AUTO_REFRESH_INTERVALS, type AutoRefreshInterval } from '../hooks/useAutoRefresh'
 import { FeedList } from '../components/FeedList'
+import { Leaderboard } from '../components/Leaderboard'
 import { RateLimitBanner } from '../components/RateLimitBanner'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { ShortcutsHelp } from '../components/ShortcutsHelp'
@@ -53,16 +55,19 @@ interface FeedViewProps {
   onChangeSetup: () => void
 }
 
+type ActiveView = 'activity' | 'leaderboard'
+
 function FeedView({
   items, repoMeta, status, lastFetchedAt, isPartial, refresh,
   label, onChangeSetup,
 }: FeedViewProps) {
+  const [activeView, setActiveView] = useState<ActiveView>('activity')
   const { isRateLimited, retryAfter, setRateLimited, clear: clearRateLimit } = useRateLimit()
   const { theme, cycleTheme } = useTheme()
   const navigate = useNavigate()
 
   const { selectedIndex, showHelp, setShowHelp } = useKeyboardNav({
-    itemCount: items.length,
+    itemCount: activeView === 'activity' ? items.length : 0,
     onOpen: (index) => {
       const item = items[index]
       if (item?.repo.htmlUrl.startsWith('https://github.com/')) {
@@ -113,7 +118,7 @@ function FeedView({
                     isLive ? 'bg-green-500 animate-pulse' : 'bg-fg-subtle',
                   ].join(' ')}
                 />
-                {isLive ? 'LIVE' : 'LIVE'}
+                LIVE
               </button>
               {isLive && nextRefreshIn !== null && (
                 <span className="text-xs text-fg-subtle tabular-nums">
@@ -167,6 +172,27 @@ function FeedView({
             </button>
           </div>
         </div>
+
+        {/* View tab bar */}
+        <div className="max-w-2xl mx-auto px-4 flex gap-0 border-t border-border">
+          {([
+            { id: 'activity',    label: '📋 Activity' },
+            { id: 'leaderboard', label: '🏆 Leaderboard' },
+          ] as const).map(view => (
+            <button
+              key={view.id}
+              onClick={() => setActiveView(view.id)}
+              className={[
+                'px-4 py-2 text-xs font-medium border-b-2 transition-colors',
+                activeView === view.id
+                  ? 'border-accent-emphasis text-fg'
+                  : 'border-transparent text-fg-muted hover:text-fg',
+              ].join(' ')}
+            >
+              {view.label}
+            </button>
+          ))}
+        </div>
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6">
@@ -174,28 +200,34 @@ function FeedView({
           <RateLimitBanner retryAfter={retryAfter} onDismiss={clearRateLimit} />
         )}
         <ErrorBoundary>
-          <FeedList
-            items={items}
-            repoMeta={repoMeta}
-            status={status}
-            isPartial={isPartial}
-            selectedIndex={selectedIndex}
-            onRetry={refresh}
-          />
+          {activeView === 'activity' ? (
+            <>
+              <FeedList
+                items={items}
+                repoMeta={repoMeta}
+                status={status}
+                isPartial={isPartial}
+                selectedIndex={selectedIndex}
+                onRetry={refresh}
+              />
+              {items.length > 0 && (
+                <p className="mt-6 text-center text-xs text-fg-subtle">
+                  <kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> navigate
+                  {' · '}
+                  <kbd className="font-mono">l</kbd> open
+                  {' · '}
+                  <kbd className="font-mono">r</kbd> refresh
+                  {' · '}
+                  <button onClick={() => setShowHelp(true)} className="underline hover:text-fg">
+                    ?
+                  </button>
+                </p>
+              )}
+            </>
+          ) : (
+            <Leaderboard items={items} repoMeta={repoMeta} status={status} />
+          )}
         </ErrorBoundary>
-        {items.length > 0 && (
-          <p className="mt-6 text-center text-xs text-fg-subtle">
-            <kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> navigate
-            {' · '}
-            <kbd className="font-mono">l</kbd> open
-            {' · '}
-            <kbd className="font-mono">r</kbd> refresh
-            {' · '}
-            <button onClick={() => setShowHelp(true)} className="underline hover:text-fg">
-              ?
-            </button>
-          </p>
-        )}
       </main>
       {showHelp && <ShortcutsHelp onClose={() => setShowHelp(false)} />}
     </div>
@@ -250,4 +282,3 @@ export function FeedPage({ username, teamMembers, onChangeSetup }: FeedPageProps
   }
   return null
 }
-

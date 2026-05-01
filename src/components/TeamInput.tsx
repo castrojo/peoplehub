@@ -159,4 +159,3 @@ export function TeamInput({ onSave, current }: TeamInputProps) {
     </form>
   )
 }
-
