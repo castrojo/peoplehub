@@ -1,35 +1,19 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useFeed } from '../hooks/useFeed'
-import { useTeamFeed } from '../hooks/useTeamFeed'
 import { useRateLimit } from '../hooks/useRateLimit'
 import { useTheme } from '../hooks/useTheme'
 import { useKeyboardNav } from '../hooks/useKeyboardNav'
-import { useAutoRefresh, AUTO_REFRESH_INTERVALS, type AutoRefreshInterval } from '../hooks/useAutoRefresh'
 import { FeedList } from '../components/FeedList'
-import { Leaderboard } from '../components/Leaderboard'
 import { RateLimitBanner } from '../components/RateLimitBanner'
+import { CategoryNav } from '../components/CategoryNav'
+import { ToolOfTheDay } from '../components/ToolOfTheDay'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { ShortcutsHelp } from '../components/ShortcutsHelp'
-import type { FeedItem, RepoMetadata } from '../types/github'
+import type { RepoMetadata } from '../types/github'
 
-// ── prop shapes ──────────────────────────────────────────────────────────────
-
-interface PersonalFeedPageProps {
-  username: string
-  teamMembers?: never
-  onChangeSetup: () => void
+interface FeedPageProps {
+  onGoToSetup?: () => void
 }
-
-interface TeamFeedPageProps {
-  teamMembers: string[]
-  username?: never
-  onChangeSetup: () => void
-}
-
-type FeedPageProps = PersonalFeedPageProps | TeamFeedPageProps
-
-// ── helpers ──────────────────────────────────────────────────────────────────
 
 function ThemeIcon({ theme }: { theme: string }) {
   if (theme === 'dark') return <>🌙</>
@@ -37,39 +21,36 @@ function ThemeIcon({ theme }: { theme: string }) {
   return <>💻</>
 }
 
-function formatCountdown(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`
-  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
-}
+// Empty map — collective feed doesn't vend per-repo metadata separately.
+// FeedCard gracefully handles missing meta.
+const EMPTY_REPO_META = new Map<string, RepoMetadata>()
 
-// ── inner component that receives resolved feed data ─────────────────────────
-
-interface FeedViewProps {
-  items: FeedItem[]
-  repoMeta: Map<string, RepoMetadata>
-  status: 'idle' | 'loading' | 'success' | 'error' | 'rate_limited'
-  lastFetchedAt: Date | null
-  isPartial: boolean
-  refresh: () => void
-  label: string          // e.g. "@castrojo" or "Team · 12 members"
-  onChangeSetup: () => void
-}
-
-type ActiveView = 'activity' | 'leaderboard'
-
-function FeedView({
-  items, repoMeta, status, lastFetchedAt, isPartial, refresh,
-  label, onChangeSetup,
-}: FeedViewProps) {
-  const [activeView, setActiveView] = useState<ActiveView>('activity')
+export function FeedPage({ onGoToSetup }: FeedPageProps) {
+  const { state, categoryFilter, setCategoryFilter, refresh, filteredItems } = useFeed()
   const { isRateLimited, retryAfter, setRateLimited, clear: clearRateLimit } = useRateLimit()
   const { theme, cycleTheme } = useTheme()
-  const navigate = useNavigate()
+  const [failedDismissed, setFailedDismissed] = useState(false)
+
+  // Derive a status string compatible with FeedList
+  const status = state.isLoading
+    ? 'loading'
+    : state.error?.toLowerCase().includes('rate')
+    ? 'rate_limited'
+    : state.error
+    ? 'error'
+    : state.fetchedAt
+    ? 'success'
+    : 'idle'
+
+  // Sync rate limit state from derived status
+  if (status === 'rate_limited' && !isRateLimited) {
+    setRateLimited(60_000)
+  }
 
   const { selectedIndex, showHelp, setShowHelp } = useKeyboardNav({
-    itemCount: activeView === 'activity' ? items.length : 0,
+    itemCount: filteredItems.length,
     onOpen: (index) => {
-      const item = items[index]
+      const item = filteredItems[index]
       if (item?.repo.htmlUrl.startsWith('https://github.com/')) {
         window.open(item.repo.htmlUrl, '_blank', 'noopener,noreferrer')
       }
@@ -77,71 +58,30 @@ function FeedView({
     onRefresh: refresh,
   })
 
-  const { isLive, intervalMs, nextRefreshIn, toggleLive, setIntervalMs } = useAutoRefresh({
-    onRefresh: refresh,
-  })
-
-  if (status === 'rate_limited' && !isRateLimited) {
-    setRateLimited(60_000)
-  }
+  const showFailedBanner =
+    !failedDismissed && state.failedUsers.length > 0 && !state.isLoading
 
   return (
     <div className="min-h-screen bg-canvas">
       <header className="border-b border-border sticky top-0 bg-canvas z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="font-bold text-fg">peoplehub</h1>
-            <span className="text-xs text-fg-subtle">{label}</span>
+          <div>
+            <h1 className="font-bold text-fg leading-tight">awesome-cncf ✨</h1>
+            <p className="text-xs text-fg-muted leading-tight">
+              what the CNCF community is building
+              {' '}
+              <span className="text-fg-subtle">#puertorico-allhands-2027</span>
+            </p>
           </div>
           <div className="flex items-center gap-3">
-            {lastFetchedAt && (
+            {state.fetchedAt && (
               <span className="hidden sm:block text-xs text-fg-subtle">
-                Updated {lastFetchedAt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                Updated {new Date(state.fetchedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
-
-            {/* Live / auto-refresh controls */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={toggleLive}
-                title={isLive ? 'Disable auto-refresh' : 'Enable auto-refresh (ambient display)'}
-                className={[
-                  'flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium transition-colors',
-                  isLive
-                    ? 'bg-green-500/15 text-green-600 dark:text-green-400'
-                    : 'text-fg-muted hover:text-fg',
-                ].join(' ')}
-              >
-                <span
-                  className={[
-                    'inline-block w-1.5 h-1.5 rounded-full',
-                    isLive ? 'bg-green-500 animate-pulse' : 'bg-fg-subtle',
-                  ].join(' ')}
-                />
-                LIVE
-              </button>
-              {isLive && nextRefreshIn !== null && (
-                <span className="text-xs text-fg-subtle tabular-nums">
-                  {formatCountdown(nextRefreshIn)}
-                </span>
-              )}
-              {isLive && (
-                <select
-                  value={intervalMs}
-                  onChange={e => setIntervalMs(Number(e.target.value) as AutoRefreshInterval)}
-                  className="text-xs text-fg-muted bg-transparent border-none outline-none cursor-pointer"
-                  title="Auto-refresh interval"
-                >
-                  {AUTO_REFRESH_INTERVALS.map(opt => (
-                    <option key={opt.ms} value={opt.ms}>{opt.label}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-
             <button
               onClick={refresh}
-              disabled={status === 'loading'}
+              disabled={state.isLoading}
               className="text-xs text-fg-muted hover:text-fg disabled:opacity-40"
               title="Refresh (r)"
             >
@@ -161,37 +101,15 @@ function FeedView({
             >
               <ThemeIcon theme={theme} />
             </button>
-            <button
-              onClick={() => {
-                onChangeSetup()
-                navigate('/setup')
-              }}
-              className="text-xs text-fg-muted hover:text-fg"
-            >
-              Change
-            </button>
+            {onGoToSetup && (
+              <button
+                onClick={onGoToSetup}
+                className="text-xs text-fg-muted hover:text-fg"
+              >
+                Settings
+              </button>
+            )}
           </div>
-        </div>
-
-        {/* View tab bar */}
-        <div className="max-w-2xl mx-auto px-4 flex gap-0 border-t border-border">
-          {([
-            { id: 'activity',    label: '📋 Activity' },
-            { id: 'leaderboard', label: '🏆 Leaderboard' },
-          ] as const).map(view => (
-            <button
-              key={view.id}
-              onClick={() => setActiveView(view.id)}
-              className={[
-                'px-4 py-2 text-xs font-medium border-b-2 transition-colors',
-                activeView === view.id
-                  ? 'border-accent-emphasis text-fg'
-                  : 'border-transparent text-fg-muted hover:text-fg',
-              ].join(' ')}
-            >
-              {view.label}
-            </button>
-          ))}
         </div>
       </header>
 
@@ -199,86 +117,55 @@ function FeedView({
         {isRateLimited && (
           <RateLimitBanner retryAfter={retryAfter} onDismiss={clearRateLimit} />
         )}
+
+        {showFailedBanner && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-canvas-subtle px-4 py-2 text-sm">
+            <span className="text-fg-muted">
+              ⚠️ Could not reach {state.failedUsers.length} community member{state.failedUsers.length !== 1 ? 's' : ''}
+            </span>
+            <button
+              onClick={() => setFailedDismissed(true)}
+              aria-label="Dismiss"
+              className="text-fg-subtle hover:text-fg text-lg leading-none shrink-0"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        <ToolOfTheDay />
+
+        <div className="mb-4">
+          <CategoryNav active={categoryFilter} onChange={setCategoryFilter} />
+        </div>
+
         <ErrorBoundary>
-          {activeView === 'activity' ? (
-            <>
-              <FeedList
-                items={items}
-                repoMeta={repoMeta}
-                status={status}
-                isPartial={isPartial}
-                selectedIndex={selectedIndex}
-                onRetry={refresh}
-              />
-              {items.length > 0 && (
-                <p className="mt-6 text-center text-xs text-fg-subtle">
-                  <kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> navigate
-                  {' · '}
-                  <kbd className="font-mono">l</kbd> open
-                  {' · '}
-                  <kbd className="font-mono">r</kbd> refresh
-                  {' · '}
-                  <button onClick={() => setShowHelp(true)} className="underline hover:text-fg">
-                    ?
-                  </button>
-                </p>
-              )}
-            </>
-          ) : (
-            <Leaderboard items={items} repoMeta={repoMeta} status={status} />
-          )}
+          <FeedList
+            items={filteredItems}
+            repoMeta={EMPTY_REPO_META}
+            status={status as 'idle' | 'loading' | 'success' | 'error' | 'rate_limited'}
+            isPartial={state.isPartial}
+            selectedIndex={selectedIndex}
+            onRetry={refresh}
+          />
         </ErrorBoundary>
+
+        {filteredItems.length > 0 && (
+          <p className="mt-6 text-center text-xs text-fg-subtle">
+            <kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> navigate
+            {' · '}
+            <kbd className="font-mono">l</kbd> open
+            {' · '}
+            <kbd className="font-mono">r</kbd> refresh
+            {' · '}
+            <button onClick={() => setShowHelp(true)} className="underline hover:text-fg">
+              ?
+            </button>
+          </p>
+        )}
       </main>
+
       {showHelp && <ShortcutsHelp onClose={() => setShowHelp(false)} />}
     </div>
   )
-}
-
-// ── personal feed wrapper ─────────────────────────────────────────────────────
-
-function PersonalFeedPage({ username, onChangeSetup }: { username: string; onChangeSetup: () => void }) {
-  const { items, repoMeta, status, lastFetchedAt, isPartial, refresh } = useFeed(username)
-  return (
-    <FeedView
-      items={items}
-      repoMeta={repoMeta}
-      status={status}
-      lastFetchedAt={lastFetchedAt}
-      isPartial={isPartial}
-      refresh={refresh}
-      label={`@${username}`}
-      onChangeSetup={onChangeSetup}
-    />
-  )
-}
-
-// ── team feed wrapper ─────────────────────────────────────────────────────────
-
-function TeamFeedPage({ teamMembers, onChangeSetup }: { teamMembers: string[]; onChangeSetup: () => void }) {
-  const { items, repoMeta, status, lastFetchedAt, isPartial, refresh } = useTeamFeed(teamMembers)
-  const label = `Team · ${teamMembers.length} member${teamMembers.length === 1 ? '' : 's'}`
-  return (
-    <FeedView
-      items={items}
-      repoMeta={repoMeta}
-      status={status}
-      lastFetchedAt={lastFetchedAt}
-      isPartial={isPartial}
-      refresh={refresh}
-      label={label}
-      onChangeSetup={onChangeSetup}
-    />
-  )
-}
-
-// ── public export ─────────────────────────────────────────────────────────────
-
-export function FeedPage({ username, teamMembers, onChangeSetup }: FeedPageProps) {
-  if (teamMembers && teamMembers.length > 0) {
-    return <TeamFeedPage teamMembers={teamMembers} onChangeSetup={onChangeSetup} />
-  }
-  if (username) {
-    return <PersonalFeedPage username={username} onChangeSetup={onChangeSetup} />
-  }
-  return null
 }

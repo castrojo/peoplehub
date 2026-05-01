@@ -1,4 +1,5 @@
 import type { FeedItem, RepoMetadata } from '../types/github'
+import { getCNCFProject } from '../lib/cncfData'
 
 interface FeedCardProps {
   item: FeedItem
@@ -68,6 +69,7 @@ function ActorRow({ actors }: { actors: FeedItem['actors'] }) {
 
 export function FeedCard({ item, meta, isSelected = false, index }: FeedCardProps) {
   const isSafe = item.repo.htmlUrl.startsWith('https://github.com/')
+  const cncfProject = getCNCFProject(item.repo.fullName)
 
   return (
     <article
@@ -104,6 +106,23 @@ export function FeedCard({ item, meta, isSelected = false, index }: FeedCardProp
               </span>
             )}
           </div>
+
+          {cncfProject && (
+            <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+                CNCF · {cncfProject.category}
+              </span>
+              {cncfProject.maturity === 'graduated' ? (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
+                  graduated
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300">
+                  incubating
+                </span>
+              )}
+            </div>
+          )}
 
           {meta?.description && (
             <p className="mt-1 text-sm text-fg-muted line-clamp-2">

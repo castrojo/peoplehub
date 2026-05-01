@@ -75,3 +75,14 @@ export type ApiError =
   | { error: 'unknown'; message: string }
 
 export type ApiResult<T> = { data: T } | ApiError
+
+export interface CollectiveFeedState {
+  items: FeedItem[]
+  isLoading: boolean
+  isPartial: boolean
+  failedUsers: string[]
+  fetchedAt: string | null
+  error: string | null
+}
+
+export type CategoryFilter = string | null  // null = all categories
