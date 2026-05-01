@@ -1,6 +1,7 @@
 import type { GitHubEvent, RepoMetadata, ApiResult } from '../types/github'
 
 const GITHUB_API = 'https://api.github.com'
+const FETCH_TIMEOUT_MS = 10_000
 
 function getHeaders(): HeadersInit {
   return {
@@ -18,6 +19,24 @@ function parseRetryAfter(headers: Headers): number {
   return 60_000
 }
 
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error(`Request timed out after ${FETCH_TIMEOUT_MS}ms`)
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export async function getReceivedEvents(
   username: string,
   maxPages = 3
@@ -29,7 +48,7 @@ export async function getReceivedEvents(
 
     let response: Response
     try {
-      response = await fetch(url, {
+      response = await fetchWithTimeout(url, {
         headers: getHeaders(),
         redirect: 'error',
       })
@@ -72,12 +91,12 @@ export async function getUserEvents(
 
   const headers: HeadersInit = {
     ...getHeaders(),
-    ...(token ? { Authorization: `token ${token}` } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
 
   let response: Response
   try {
-    response = await fetch(url, { headers, redirect: 'error' })
+    response = await fetchWithTimeout(url, { headers, redirect: 'error' })
   } catch (err) {
     return { error: 'network', message: String(err) }
   }
@@ -109,7 +128,7 @@ export async function getRepoMetadata(
 
   let response: Response
   try {
-    response = await fetch(url, {
+    response = await fetchWithTimeout(url, {
       headers: getHeaders(),
       redirect: 'error',
     })

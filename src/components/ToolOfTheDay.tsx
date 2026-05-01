@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { CNCF_GRADUATED } from '../lib/cncfData'
 
 function getTodayProject() {
-  const date = new Date().toISOString().slice(0, 10)
-  const hash = date.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+  const d = new Date()
+  // Use local date (not UTC) so daily rotation matches the user's clock
+  const dateStr = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+  const hash = dateStr.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
   return CNCF_GRADUATED[hash % CNCF_GRADUATED.length]
 }
 

@@ -2,7 +2,7 @@ export interface CNCFProject {
   repo: string        // "org/name" e.g. "kubernetes/kubernetes"
   name: string        // Display name: "Kubernetes"
   maturity: 'graduated' | 'incubating'
-  category: string    // One of CNCF_CATEGORIES
+  category: CNCFCategory
   homepage: string    // e.g. "https://kubernetes.io"
 }
 
@@ -80,6 +80,6 @@ export function getCNCFProject(repoFullName: string): CNCFProject | undefined {
   return _repoMap.get(repoFullName.toLowerCase())
 }
 
-export function getCNCFCategory(repoFullName: string): string | undefined {
+export function getCNCFCategory(repoFullName: string): CNCFCategory | undefined {
   return getCNCFProject(repoFullName)?.category
 }

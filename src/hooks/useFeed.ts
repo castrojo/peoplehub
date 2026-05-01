@@ -5,8 +5,12 @@ import { cacheGet, cacheSet, feedCacheKey } from '../lib/cache'
 import { useConfig } from './useConfig'
 import type { CollectiveFeedState, CategoryFilter, FeedItem } from '../types/github'
 
-const FEED_TTL_MS = 6 * 60 * 60 * 1000        // 6 hours
-const COLLECTIVE_CACHE_KEY = feedCacheKey('collective')
+const FEED_TTL_MS = 6 * 60 * 60 * 1000        // 6 hours — max cache age before forced refresh
+const STALE_MS = 60 * 60 * 1000               // 1 hour — trigger background refresh if older
+
+function getCacheKey(token: string | undefined): string {
+  return feedCacheKey(`collective:${token ? 'auth' : 'anon'}`)
+}
 
 const INITIAL_STATE: CollectiveFeedState = {
   items: [],
@@ -29,11 +33,13 @@ export function useFeed(): {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(null)
   const fetchingRef = useRef(false)
 
-  const fetchFeed = useCallback(async (token: string | undefined) => {
+  const fetchFeed = useCallback(async (token: string | undefined, background = false) => {
     if (fetchingRef.current) return
     fetchingRef.current = true
 
-    setState(prev => ({ ...prev, isLoading: true, error: null }))
+    if (!background) {
+      setState(prev => ({ ...prev, isLoading: true, error: null }))
+    }
 
     try {
       const result = await fetchCollectiveFeed({ token })
@@ -44,14 +50,16 @@ export function useFeed(): {
         isPartial: result.isPartial,
         failedUsers: result.failedUsers,
         fetchedAt: result.fetchedAt,
-        error: null,
+        error: result.rateLimited ? 'rate_limited' : null,
       }
 
-      cacheSet(COLLECTIVE_CACHE_KEY, next)
+      cacheSet(getCacheKey(token), next)
       setState(next)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
-      setState(prev => ({ ...prev, isLoading: false, error: message }))
+      if (!background) {
+        setState(prev => ({ ...prev, isLoading: false, error: message }))
+      }
     } finally {
       fetchingRef.current = false
     }
@@ -62,17 +70,22 @@ export function useFeed(): {
   }, [config.token, fetchFeed])
 
   useEffect(() => {
-    const cached = cacheGet<CollectiveFeedState>(COLLECTIVE_CACHE_KEY, FEED_TTL_MS)
+    const cacheKey = getCacheKey(config.token)
+    const cached = cacheGet<CollectiveFeedState>(cacheKey, FEED_TTL_MS)
 
     if (cached) {
-      // Serve from cache immediately; data is already a CollectiveFeedState snapshot
       setState({ ...cached.data, isLoading: false })
-      // Background refresh not needed — cache is still within TTL
+      // Background stale-while-revalidate: refresh if data is older than STALE_MS
+      const ageMs = cached.ageMs
+      if (ageMs > STALE_MS) {
+        fetchFeed(config.token, /* background */ true)
+      }
     } else {
       fetchFeed(config.token)
     }
+  // Rerun when token changes so cache key and fetch target update accordingly
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])   // run once on mount; refresh() is the explicit re-fetch path
+  }, [config.token])
 
   const filteredItems: FeedItem[] =
     categoryFilter === null

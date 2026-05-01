@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useFeed } from '../hooks/useFeed'
 import { useRateLimit } from '../hooks/useRateLimit'
 import { useTheme } from '../hooks/useTheme'
@@ -9,6 +9,7 @@ import { CategoryNav } from '../components/CategoryNav'
 import { ToolOfTheDay } from '../components/ToolOfTheDay'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { ShortcutsHelp } from '../components/ShortcutsHelp'
+import { CNCF_PROJECTS } from '../lib/cncfData'
 import type { RepoMetadata } from '../types/github'
 
 interface FeedPageProps {
@@ -21,9 +22,20 @@ function ThemeIcon({ theme }: { theme: string }) {
   return <>💻</>
 }
 
-// Empty map — collective feed doesn't vend per-repo metadata separately.
-// FeedCard gracefully handles missing meta.
-const EMPTY_REPO_META = new Map<string, RepoMetadata>()
+// Build metadata map from CNCF catalog so descriptions appear for known projects
+function buildCNCFRepoMeta(): Map<string, RepoMetadata> {
+  const map = new Map<string, RepoMetadata>()
+  for (const project of CNCF_PROJECTS) {
+    map.set(project.repo.toLowerCase(), {
+      fullName: project.repo,
+      description: `CNCF ${project.maturity} project · ${project.category}`,
+      language: null,
+      stargazersCount: 0,
+      htmlUrl: project.homepage,
+    })
+  }
+  return map
+}
 
 export function FeedPage({ onGoToSetup }: FeedPageProps) {
   const { state, categoryFilter, setCategoryFilter, refresh, filteredItems } = useFeed()
@@ -31,10 +43,12 @@ export function FeedPage({ onGoToSetup }: FeedPageProps) {
   const { theme, cycleTheme } = useTheme()
   const [failedDismissed, setFailedDismissed] = useState(false)
 
+  const cncfRepoMeta = useMemo(() => buildCNCFRepoMeta(), [])
+
   // Derive a status string compatible with FeedList
   const status = state.isLoading
     ? 'loading'
-    : state.error?.toLowerCase().includes('rate')
+    : state.error === 'rate_limited'
     ? 'rate_limited'
     : state.error
     ? 'error'
@@ -42,10 +56,17 @@ export function FeedPage({ onGoToSetup }: FeedPageProps) {
     ? 'success'
     : 'idle'
 
-  // Sync rate limit state from derived status
-  if (status === 'rate_limited' && !isRateLimited) {
-    setRateLimited(60_000)
-  }
+  // Sync rate limit state from derived status (in effect, not render)
+  useEffect(() => {
+    if (status === 'rate_limited' && !isRateLimited) {
+      setRateLimited(60_000)
+    }
+  }, [status, isRateLimited, setRateLimited])
+
+  // Reset dismissed banner when failed users list changes
+  useEffect(() => {
+    setFailedDismissed(false)
+  }, [state.failedUsers])
 
   const { selectedIndex, showHelp, setShowHelp } = useKeyboardNav({
     itemCount: filteredItems.length,
@@ -142,7 +163,7 @@ export function FeedPage({ onGoToSetup }: FeedPageProps) {
         <ErrorBoundary>
           <FeedList
             items={filteredItems}
-            repoMeta={EMPTY_REPO_META}
+            repoMeta={cncfRepoMeta}
             status={status as 'idle' | 'loading' | 'success' | 'error' | 'rate_limited'}
             isPartial={state.isPartial}
             selectedIndex={selectedIndex}

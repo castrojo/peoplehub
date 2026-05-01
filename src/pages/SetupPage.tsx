@@ -3,14 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useConfig } from '../hooks/useConfig'
 
 interface SetupPageProps {
-  // token string on save (empty string = no token) — kept as string for
-  // backward-compat with App.tsx which passes useUsername().setUsername
+  // token string on save (empty string = clear token)
   onSave: (token: string) => void
 }
 
 export function SetupPage({ onSave }: SetupPageProps) {
   const navigate = useNavigate()
-  const { setToken } = useConfig()
+  const { setToken, clearToken } = useConfig()
   const [tokenValue, setTokenValue] = useState('')
 
   const handleSubmit = (e: FormEvent) => {
@@ -18,8 +17,9 @@ export function SetupPage({ onSave }: SetupPageProps) {
     const trimmed = tokenValue.trim()
     if (trimmed) {
       setToken(trimmed)
+    } else {
+      clearToken()
     }
-    // Pass token (or empty string) to parent; parent is a no-op shim now
     onSave(trimmed)
     navigate('/')
   }
@@ -62,7 +62,7 @@ export function SetupPage({ onSave }: SetupPageProps) {
               Without a token, limited to 60 API requests/hour. A read-only public
               token gives 5,000/hour.{' '}
               <a
-                href="https://github.com/settings/tokens/new?description=awesome-cncf&scopes=public_repo"
+                href="https://github.com/settings/tokens/new?description=awesome-cncf"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:text-fg"

@@ -2,19 +2,23 @@ import { useState, useCallback } from 'react'
 import type { AppConfig } from '../types/config'
 import { CONFIG_KEY } from '../types/config'
 
-function readConfig(): AppConfig {
+const TOKEN_SESSION_KEY = `${CONFIG_KEY}:token`
+
+function readToken(): string | undefined {
   try {
-    const raw = localStorage.getItem(CONFIG_KEY)
-    if (raw) return JSON.parse(raw) as AppConfig
+    return sessionStorage.getItem(TOKEN_SESSION_KEY) ?? undefined
   } catch {
-    // ignore parse errors — return empty config
+    return undefined
   }
-  return {}
 }
 
-function writeConfig(config: AppConfig): void {
+function writeToken(token: string | undefined): void {
   try {
-    localStorage.setItem(CONFIG_KEY, JSON.stringify(config))
+    if (token) {
+      sessionStorage.setItem(TOKEN_SESSION_KEY, token)
+    } else {
+      sessionStorage.removeItem(TOKEN_SESSION_KEY)
+    }
   } catch {
     // ignore storage errors (private browsing, quota exceeded, etc.)
   }
@@ -26,12 +30,14 @@ export function useConfig(): {
   clearToken: () => void
   isConfigured: boolean
 } {
-  const [config, setConfigState] = useState<AppConfig>(() => readConfig())
+  const [config, setConfigState] = useState<AppConfig>(() => ({
+    token: readToken(),
+  }))
 
   const setToken = useCallback((token: string) => {
     setConfigState(prev => {
-      const next: AppConfig = { ...prev, token }
-      writeConfig(next)
+      const next: AppConfig = { ...prev, token: token || undefined }
+      writeToken(next.token)
       return next
     })
   }, [])
@@ -40,7 +46,7 @@ export function useConfig(): {
     setConfigState(prev => {
       const next: AppConfig = { ...prev }
       delete next.token
-      writeConfig(next)
+      writeToken(undefined)
       return next
     })
   }, [])

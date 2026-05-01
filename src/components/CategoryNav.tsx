@@ -15,7 +15,7 @@ export function CategoryNav({ active, onChange }: CategoryNavProps) {
     <div
       className="flex gap-1.5 overflow-x-auto pb-1"
       style={{ scrollbarWidth: 'none' }}
-      role="tablist"
+      role="group"
       aria-label="Filter by CNCF category"
     >
       {tabs.map(({ label, value }) => {
@@ -23,8 +23,7 @@ export function CategoryNav({ active, onChange }: CategoryNavProps) {
         return (
           <button
             key={label}
-            role="tab"
-            aria-selected={isActive}
+            aria-pressed={isActive}
             onClick={() => onChange(value)}
             className={[
               'shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap',
