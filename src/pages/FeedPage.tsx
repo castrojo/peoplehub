@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useFeed } from '../hooks/useFeed'
 import { useRateLimit } from '../hooks/useRateLimit'
 import { useTheme } from '../hooks/useTheme'
@@ -38,6 +39,7 @@ function buildCNCFRepoMeta(): Map<string, RepoMetadata> {
 }
 
 export function FeedPage({ onGoToSetup }: FeedPageProps) {
+  const navigate = useNavigate()
   const { state, categoryFilter, setCategoryFilter, refresh, filteredItems } = useFeed()
   const { isRateLimited, retryAfter, setRateLimited, clear: clearRateLimit } = useRateLimit()
   const { theme, cycleTheme } = useTheme()
@@ -100,6 +102,13 @@ export function FeedPage({ onGoToSetup }: FeedPageProps) {
                 Updated {new Date(state.fetchedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
+            <button
+              onClick={() => navigate('/projects')}
+              className="text-xs text-fg-muted hover:text-fg"
+              title="Browse projects"
+            >
+              Projects
+            </button>
             <button
               onClick={refresh}
               disabled={state.isLoading}

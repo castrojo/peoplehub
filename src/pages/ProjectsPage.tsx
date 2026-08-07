@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useFeed } from '../hooks/useFeed'
-import { getCNCFProject } from '../lib/cncfData'
+import { getCNCFProject, CNCF_PROJECTS } from '../lib/cncfData'
 
 interface RepoSummary {
   fullName: string
@@ -14,11 +14,25 @@ interface RepoSummary {
 function buildRepoList(items: ReturnType<typeof useFeed>['state']['items']): RepoSummary[] {
   const repoMap = new Map<string, RepoSummary>()
 
+  // Seed with the full CNCF catalog so the whole org's projects — and their
+  // star/activity history — are searchable, not just repos with recent feed activity.
+  for (const project of CNCF_PROJECTS) {
+    const key = project.repo.toLowerCase()
+    repoMap.set(key, {
+      fullName: project.repo,
+      htmlUrl: project.homepage,
+      count: 0,
+      cncfCategory: project.category,
+      cncfMaturity: project.maturity,
+    })
+  }
+
   for (const item of items) {
     const key = item.repo.fullName.toLowerCase()
     const existing = repoMap.get(key)
     if (existing) {
       existing.count += item.count
+      existing.htmlUrl = item.repo.htmlUrl
     } else {
       const cncf = getCNCFProject(item.repo.fullName)
       repoMap.set(key, {
@@ -75,15 +89,15 @@ export function ProjectsPage() {
           aria-label="Search repositories"
         />
 
-        {state.isLoading && repos.length === 0 && (
-          <div className="text-center py-16 text-fg-muted">
-            Loading community data…
+        {state.isLoading && state.items.length === 0 && (
+          <div className="mb-4 text-center text-xs text-fg-subtle">
+            Loading community activity…
           </div>
         )}
 
-        {!state.isLoading && filtered.length === 0 && (
+        {filtered.length === 0 && (
           <div className="text-center py-16 text-fg-muted">
-            {query ? 'No repos match your search.' : 'No repos in the collective feed yet.'}
+            {query ? 'No repos match your search.' : 'No projects found.'}
           </div>
         )}
 
