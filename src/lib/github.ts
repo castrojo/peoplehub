@@ -163,3 +163,52 @@ export async function getRepoMetadata(
     },
   }
 }
+
+export async function getOrgMembers(
+  org: string,
+  maxPages = 5
+): Promise<ApiResult<string[]>> {
+  const logins: string[] = []
+
+  for (let page = 1; page <= maxPages; page++) {
+    // Public members endpoint — no auth required, only returns members who
+    // have made their org affiliation public.
+    const url = `${GITHUB_API}/orgs/${encodeURIComponent(org)}/public_members?per_page=100&page=${page}`
+
+    let response: Response
+    try {
+      response = await fetchWithTimeout(url, {
+        headers: getHeaders(),
+        redirect: 'error',
+      })
+    } catch (err) {
+      return { error: 'network', message: String(err) }
+    }
+
+    if (response.status === 403 || response.status === 429) {
+      return { error: 'rate_limited', retryAfter: parseRetryAfter(response.headers) }
+    }
+    if (response.status === 404) {
+      return { error: 'not_found' }
+    }
+    if (!response.ok) {
+      return { error: 'unknown', message: `HTTP ${response.status}` }
+    }
+
+    let members: Array<{ login?: string }>
+    try {
+      members = await response.json() as Array<{ login?: string }>
+    } catch {
+      return { error: 'unknown', message: 'Failed to parse org members JSON' }
+    }
+
+    for (const member of members) {
+      if (member.login) logins.push(member.login)
+    }
+
+    // Stop paginating if we got fewer than a full page
+    if (members.length < 100) break
+  }
+
+  return { data: logins }
+}
