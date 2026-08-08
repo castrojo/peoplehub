@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { CNCF_GRADUATED } from '../lib/cncfData'
+import { CNCF_PROJECTS } from '../lib/cncfData'
 
 function getTodayProject() {
   const d = new Date()
   // Use local date (not UTC) so daily rotation matches the user's clock
   const dateStr = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
   const hash = dateStr.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
-  return CNCF_GRADUATED[hash % CNCF_GRADUATED.length]
+  // Rotate through both graduated (established) and incubating (newer)
+  // projects so "Tool of the Day" surfaces a good mix of the two.
+  return CNCF_PROJECTS[hash % CNCF_PROJECTS.length]
 }
 
 // No props needed — self-contained
