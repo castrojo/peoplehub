@@ -1,14 +1,15 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useFeed } from '../hooks/useFeed'
-import { getCNCFProject } from '../lib/cncfData'
+import { getCNCFProject, CNCF_PILLARS, type CNCFMaturity, type CNCFPillarId } from '../lib/cncfData'
 
 interface RepoSummary {
   fullName: string
   htmlUrl: string
   count: number
   cncfCategory?: string
-  cncfMaturity?: 'graduated' | 'incubating'
+  cncfMaturity?: CNCFMaturity
+  cncfPillars?: CNCFPillarId[]
 }
 
 function buildRepoList(items: ReturnType<typeof useFeed>['state']['items']): RepoSummary[] {
@@ -27,6 +28,7 @@ function buildRepoList(items: ReturnType<typeof useFeed>['state']['items']): Rep
         count: item.count,
         cncfCategory: cncf?.category,
         cncfMaturity: cncf?.maturity,
+        cncfPillars: cncf?.pillars,
       })
     }
   }
@@ -120,11 +122,28 @@ export function ProjectsPage() {
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
                           graduated
                         </span>
-                      ) : (
+                      ) : repo.cncfMaturity === 'incubating' ? (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300">
                           incubating
                         </span>
+                      ) : (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">
+                          sandbox
+                        </span>
                       )}
+                      {repo.cncfPillars?.map((pillarId) => {
+                        const pillar = CNCF_PILLARS.find((p) => p.id === pillarId)
+                        if (!pillar) return null
+                        return (
+                          <span
+                            key={pillarId}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-accent-emphasis/10 text-accent-fg border border-accent-emphasis/30"
+                          >
+                            <span aria-hidden="true">{pillar.icon}</span>
+                            {pillar.label}
+                          </span>
+                        )
+                      })}
                     </div>
                   )}
                 </div>

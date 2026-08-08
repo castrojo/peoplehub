@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchCollectiveFeed } from '../lib/collectiveFeed'
-import { getCNCFCategory } from '../lib/cncfData'
+import { getCNCFCategory, getCNCFPillars } from '../lib/cncfData'
 import { cacheGet, cacheSet, feedCacheKey } from '../lib/cache'
 import { useConfig } from './useConfig'
-import type { CollectiveFeedState, CategoryFilter, FeedItem } from '../types/github'
+import type { CollectiveFeedState, CategoryFilter, PillarFilter, FeedItem } from '../types/github'
 
 const FEED_TTL_MS = 6 * 60 * 60 * 1000        // 6 hours — max cache age before forced refresh
 const STALE_MS = 60 * 60 * 1000               // 1 hour — trigger background refresh if older
@@ -25,13 +25,27 @@ export function useFeed(): {
   state: CollectiveFeedState
   categoryFilter: CategoryFilter
   setCategoryFilter: (cat: CategoryFilter) => void
+  pillarFilter: PillarFilter
+  setPillarFilter: (pillar: PillarFilter) => void
   refresh: () => void
   filteredItems: FeedItem[]
 } {
   const { config } = useConfig()
   const [state, setState] = useState<CollectiveFeedState>(INITIAL_STATE)
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(null)
+  const [categoryFilter, setCategoryFilterState] = useState<CategoryFilter>(null)
+  const [pillarFilter, setPillarFilterState] = useState<PillarFilter>(null)
   const fetchingRef = useRef(false)
+
+  // Category and pillar filters are mutually exclusive — selecting one clears the other.
+  const setCategoryFilter = useCallback((cat: CategoryFilter) => {
+    setCategoryFilterState(cat)
+    if (cat !== null) setPillarFilterState(null)
+  }, [])
+
+  const setPillarFilter = useCallback((pillar: PillarFilter) => {
+    setPillarFilterState(pillar)
+    if (pillar !== null) setCategoryFilterState(null)
+  }, [])
 
   const fetchFeed = useCallback(async (token: string | undefined, background = false) => {
     if (fetchingRef.current) return
@@ -87,10 +101,11 @@ export function useFeed(): {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.token])
 
-  const filteredItems: FeedItem[] =
-    categoryFilter === null
+  const filteredItems: FeedItem[] = pillarFilter
+    ? state.items.filter(item => getCNCFPillars(item.repo.fullName).includes(pillarFilter))
+    : categoryFilter === null
       ? state.items
       : state.items.filter(item => getCNCFCategory(item.repo.fullName) === categoryFilter)
 
-  return { state, categoryFilter, setCategoryFilter, refresh, filteredItems }
+  return { state, categoryFilter, setCategoryFilter, pillarFilter, setPillarFilter, refresh, filteredItems }
 }
