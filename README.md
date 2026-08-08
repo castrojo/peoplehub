@@ -28,3 +28,28 @@ npm run dev
 ## Deploy
 
 Automatically deploys to GitHub Pages on push to `main`.
+
+## Slack bot
+
+A scheduled GitHub Actions workflow (`.github/workflows/slack-bot.yml`) posts a
+daily summary of trending CNCF community stars/forks to Slack via an
+[Incoming Webhook](https://api.slack.com/messaging/webhooks).
+
+### Setup
+
+1. Create a Slack app (or reuse one) with an Incoming Webhook enabled for the
+   channel you want announcements posted to.
+2. Add the webhook URL as a repository secret named `SLACK_WEBHOOK_URL`.
+3. (Optional) Set a repository variable `SLACK_CHANNEL` to override the
+   channel the webhook posts to (requires a webhook whose app allows posting
+   to arbitrary channels).
+4. The bot runs daily at 14:00 UTC by default, or trigger it manually from
+   the Actions tab (`workflow_dispatch`), optionally overriding:
+   - `window_days` — how many days of activity to summarize (default `1`)
+   - `top_n` — how many repos to include (default `10`)
+
+Run it locally with:
+
+```bash
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/... node scripts/slack-bot.mjs
+```
