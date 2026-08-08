@@ -3,6 +3,7 @@ import { useTheme } from './hooks/useTheme'
 import { FeedPage } from './pages/FeedPage'
 import { SetupPage } from './pages/SetupPage'
 import { ProjectsPage } from './pages/ProjectsPage'
+import { SocialPage } from './pages/SocialPage'
 
 function AppRoutes() {
   const navigate = useNavigate()
@@ -26,6 +27,7 @@ function AppRoutes() {
         }
       />
       <Route path="/projects" element={<ProjectsPage />} />
+      <Route path="/social" element={<SocialPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
