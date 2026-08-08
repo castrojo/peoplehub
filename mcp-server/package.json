@@ -1,0 +1,19 @@
+{
+  "name": "peoplehub-mcp",
+  "private": true,
+  "version": "0.1.0",
+  "description": "MCP server exposing peoplehub's team star/fork feed as tools for AI agents (goose, Claude, Copilot, etc.)",
+  "type": "module",
+  "bin": {
+    "peoplehub-mcp": "./index.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0"
+  }
+}

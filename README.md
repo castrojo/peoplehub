@@ -28,3 +28,12 @@ npm run dev
 ## Deploy
 
 Automatically deploys to GitHub Pages on push to `main`.
+
+## MCP server
+
+An [MCP](https://modelcontextprotocol.io) server in [`mcp-server/`](./mcp-server)
+exposes the same team star/fork feed as tools for AI agents (goose, Claude,
+Copilot CLI, etc.), so you can ask things like *"jean-luc told me about a
+cool project about memory, find it for me"* and have the agent search your
+team's recent GitHub activity. See [`mcp-server/README.md`](./mcp-server/README.md)
+for setup.
