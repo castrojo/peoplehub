@@ -1,0 +1,29 @@
+name: Slack Daily Summary
+
+on:
+  schedule:
+    - cron: '0 14 * * *'  # 14:00 UTC daily
+  workflow_dispatch:
+
+jobs:
+  post-summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Post daily summary to Slack
+        run: node scripts/slack-daily-summary.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
+          SLACK_USERNAME: ${{ vars.SLACK_USERNAME }}
+          SLACK_ICON_EMOJI: ${{ vars.SLACK_ICON_EMOJI }}
+          SUMMARY_WINDOW_DAYS: ${{ vars.SUMMARY_WINDOW_DAYS }}
+          TOP_N: ${{ vars.TOP_N }}
