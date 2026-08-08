@@ -9,17 +9,10 @@
 import { writeFileSync, mkdirSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { SEED_USERS } from './seed-users.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
-
-const SEED_USERS = [
-  'caniszczyk', 'castrojo', 'thockin', 'bgrant0607', 'jbeda',
-  'brendandburns', 'liggitt', 'kelseyhightower', 'dims', 'nikhita',
-  'deads2k', 'smarterclayton', 'eddiezane', 'lachie83', 'dlorenc',
-  'hawkw', 'jessfraz', 'aojea', 'sttts', 'spiffxp',
-  'vincepri', 'justinsb', 'bobbypage', 'timja', 'ryantking',
-]
 
 const TOKEN = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || ''
 const HEADERS = {
