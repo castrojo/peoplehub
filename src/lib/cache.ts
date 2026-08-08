@@ -102,3 +102,7 @@ export function feedCacheKey(username: string): string {
 export function repoCacheKey(fullName: string): string {
   return `peoplehub:repo:v1:${fullName}`
 }
+
+export function socialFeedCacheKey(tag: string): string {
+  return `peoplehub:social:v1:${tag}`
+}

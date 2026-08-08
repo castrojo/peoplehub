@@ -13,6 +13,9 @@ A minimal GitHub discovery feed. Shows only ⭐ Stars and 🍴 Forks from people
 - Aggregates: "Alice, Bob, and Charlie starred X"
 - Caches results for 6 hours in localStorage
 - Dark/light/system theme matching GitHub's color tokens
+- **Social feed** (`/social`): surfaces Mastodon and Bluesky posts tagged
+  `#awesomecncf` so the community can see the discussion behind why someone
+  likes a tool or project, and recommend tools to each other.
 
 ## Setup
 

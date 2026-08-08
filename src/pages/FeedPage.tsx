@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useFeed } from '../hooks/useFeed'
 import { useRateLimit } from '../hooks/useRateLimit'
 import { useTheme } from '../hooks/useTheme'
@@ -42,6 +43,7 @@ export function FeedPage({ onGoToSetup }: FeedPageProps) {
   const { isRateLimited, retryAfter, setRateLimited, clear: clearRateLimit } = useRateLimit()
   const { theme, cycleTheme } = useTheme()
   const [failedDismissed, setFailedDismissed] = useState(false)
+  const navigate = useNavigate()
 
   const cncfRepoMeta = useMemo(() => buildCNCFRepoMeta(), [])
 
@@ -114,6 +116,13 @@ export function FeedPage({ onGoToSetup }: FeedPageProps) {
               title="Keyboard shortcuts (?)"
             >
               ?
+            </button>
+            <button
+              onClick={() => navigate('/social')}
+              className="text-xs text-fg-muted hover:text-fg"
+              title="Social feed"
+            >
+              💬 Social
             </button>
             <button
               onClick={cycleTheme}
