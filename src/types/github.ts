@@ -86,3 +86,4 @@ export interface CollectiveFeedState {
 }
 
 export type CategoryFilter = string | null  // null = all categories
+export type PillarFilter = string | null    // null = no pillar selected

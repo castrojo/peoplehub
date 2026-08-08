@@ -6,6 +6,7 @@ import { useKeyboardNav } from '../hooks/useKeyboardNav'
 import { FeedList } from '../components/FeedList'
 import { RateLimitBanner } from '../components/RateLimitBanner'
 import { CategoryNav } from '../components/CategoryNav'
+import { PillarNav } from '../components/PillarNav'
 import { ToolOfTheDay } from '../components/ToolOfTheDay'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { ShortcutsHelp } from '../components/ShortcutsHelp'
@@ -38,7 +39,7 @@ function buildCNCFRepoMeta(): Map<string, RepoMetadata> {
 }
 
 export function FeedPage({ onGoToSetup }: FeedPageProps) {
-  const { state, categoryFilter, setCategoryFilter, refresh, filteredItems } = useFeed()
+  const { state, categoryFilter, setCategoryFilter, pillarFilter, setPillarFilter, refresh, filteredItems } = useFeed()
   const { isRateLimited, retryAfter, setRateLimited, clear: clearRateLimit } = useRateLimit()
   const { theme, cycleTheme } = useTheme()
   const [failedDismissed, setFailedDismissed] = useState(false)
@@ -155,6 +156,8 @@ export function FeedPage({ onGoToSetup }: FeedPageProps) {
         )}
 
         <ToolOfTheDay />
+
+        <PillarNav active={pillarFilter} onChange={setPillarFilter} />
 
         <div className="mb-4">
           <CategoryNav active={categoryFilter} onChange={setCategoryFilter} />
