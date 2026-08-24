@@ -28,3 +28,7 @@ npm run dev
 ## Deploy
 
 Automatically deploys to GitHub Pages on push to `main`.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
